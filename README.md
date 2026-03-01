@@ -1,4 +1,4 @@
-# AI Retail Chatbot (Node.js + RAG + Semantic Search + BLiP)
+# AI Retail Chatbot (Node.js + RAG + Semantic Search + BLiP Integration)
 
 An intelligent retail support chatbot built with Node.js, Express, semantic search, and embeddings.
 
@@ -14,10 +14,22 @@ The chatbot can be integrated with platforms such as **BLiP** through a webhook,
 - **Webhook integration** for chatbot platforms (BLiP)
 - Simple and scalable Node.js + Express API
 - **Retrieval-Augmented Generation (RAG)** architecture
+- **Conversation memory** per user
+- **Intent detection** for routing messages
+
+## 💬 Example Conversation
+
+```markdown
+User:
+Do you have a white men's t-shirt?
+
+Bot:
+Yes! We have a white cotton men's t-shirt available for $49.90.
+```
 
 ---
 
-## 🔄 How It Works
+## 🔄 Architecture
 
 The chatbot uses a simplified RAG (Retrieval-Augmented Generation) pipeline:
 
@@ -29,16 +41,14 @@ The chatbot uses a simplified RAG (Retrieval-Augmented Generation) pipeline:
 6. The LLM generates a natural response
 7. The response is returned to the user
 
-```
-User → BLiP → Webhook (Express) → Embedding generation → Semantic product search → Context sent to LLM → Generated response → User
-```
+![Architecture](assets/architecture.png)
 
 ---
 
 ## 📁 Project Structure
 
 ```
-project/
+blip-llm-webhook-bot/
 │
 ├── data/
 │   └── products.json
@@ -165,20 +175,6 @@ http://localhost:3000
 
 ---
 
-## 🧠 Architecture
-
-This project follows a **Retrieval-Augmented Generation (RAG)** architecture:
-
-1. User message arrives through BLiP
-2. The webhook processes the message
-3. The message is converted into an embedding
-4. The system searches the product dataset
-5. The most relevant products are retrieved
-6. Product information is injected into the LLM prompt
-7. The LLM generates a natural response
-
----
-
 ## 📈 Possible Improvements
 
 - [ ] Vector database (Pinecone, Weaviate, Supabase)
@@ -191,8 +187,8 @@ This project follows a **Retrieval-Augmented Generation (RAG)** architecture:
 
 ## 👨‍💻 Author
 
-**Gustavo**  
-Systems Analysis and Development Student – FATEC
+**Gustavo Dev**  
+Systems Analysis and Development – FATEC
 
 ---
 
