@@ -133,12 +133,20 @@ router.post("/", async (req, res) => {
   try {
 
     const userId = req.body.from || "anonymous";
-    const userMessage = req.body.content;
+    let userMessage = "";
+
+    // Verifica string direta
+    if (typeof req.body.content === "string") {
+      userMessage = req.body.content;
+    }
+    // Verifica objeto com .text
+    else if (req.body.content && typeof req.body.content === "object") {
+      if ("text" in req.body.content) userMessage = req.body.content.text;
+      else if ("content" in req.body.content) userMessage = req.body.content.content;
+    }
 
     if (!userMessage) {
-      return res.status(400).json({
-        reply: "Mensagem inválida"
-      });
+      return res.status(400).json({ reply: "Mensagem inválida" });
     }
 
     /*
@@ -210,7 +218,7 @@ router.post("/", async (req, res) => {
         Preço: R$${p.price}
         Descrição: ${p.description}
         `;
-        }).join("\n");
+      }).join("\n");
 
       /*
       Prompt para gerar resposta natural
