@@ -236,7 +236,7 @@ router.post("/", async (req, res) => {
 
               Use os produtos abaixo para responder a pergunta do cliente.
 
-              Seja natural e útil.
+              Seja natural e útil. Responda sempre em texto simples.
               `
             },
             {
@@ -325,7 +325,7 @@ router.post("/", async (req, res) => {
         messages: [
           {
             role: "system",
-            content: "Você é um assistente educado dentro de um chatbot."
+            content: "Você é um assistente educado dentro de um chatbot. Responda sempre em texto simples."
           },
           ...context
         ],

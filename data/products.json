@@ -3,12 +3,180 @@
     "id": 1,
     "name": "Camiseta branca masculina",
     "price": 49.90,
-    "description": "Camiseta básica de algodão"
+    "description": "Camiseta básica masculina de algodão confortável"
   },
   {
     "id": 2,
+    "name": "Camiseta preta masculina",
+    "price": 49.90,
+    "description": "Camiseta básica masculina preta de algodão"
+  },
+  {
+    "id": 3,
+    "name": "Camiseta branca feminina",
+    "price": 45.90,
+    "description": "Camiseta feminina básica branca de algodão"
+  },
+  {
+    "id": 4,
+    "name": "Camiseta oversized preta",
+    "price": 69.90,
+    "description": "Camiseta oversized moderna em algodão premium"
+  },
+  {
+    "id": 5,
+    "name": "Camiseta dryfit esportiva",
+    "price": 59.90,
+    "description": "Camiseta esportiva dryfit ideal para academia"
+  },
+  {
+    "id": 6,
+    "name": "Camisa polo azul",
+    "price": 79.90,
+    "description": "Camisa polo masculina azul de algodão piquet"
+  },
+  {
+    "id": 7,
+    "name": "Camisa social branca",
+    "price": 119.90,
+    "description": "Camisa social masculina branca para ocasiões formais"
+  },
+  {
+    "id": 8,
+    "name": "Camisa social preta",
+    "price": 119.90,
+    "description": "Camisa social masculina preta elegante"
+  },
+  {
+    "id": 9,
     "name": "Calça jeans slim",
     "price": 129.90,
-    "description": "Calça jeans masculina slim fit"
+    "description": "Calça jeans masculina slim fit moderna"
+  },
+  {
+    "id": 10,
+    "name": "Calça jeans reta",
+    "price": 119.90,
+    "description": "Calça jeans masculina corte reto tradicional"
+  },
+  {
+    "id": 11,
+    "name": "Calça cargo masculina",
+    "price": 139.90,
+    "description": "Calça cargo masculina com bolsos laterais"
+  },
+  {
+    "id": 12,
+    "name": "Calça moletom masculina",
+    "price": 89.90,
+    "description": "Calça de moletom confortável para uso casual"
+  },
+  {
+    "id": 13,
+    "name": "Shorts jeans masculino",
+    "price": 79.90,
+    "description": "Shorts jeans masculino casual para verão"
+  },
+  {
+    "id": 14,
+    "name": "Shorts esportivo dryfit",
+    "price": 69.90,
+    "description": "Shorts esportivo leve para corrida e academia"
+  },
+  {
+    "id": 15,
+    "name": "Moletom masculino cinza",
+    "price": 129.90,
+    "description": "Moletom masculino com capuz e bolso frontal"
+  },
+  {
+    "id": 16,
+    "name": "Moletom feminino preto",
+    "price": 129.90,
+    "description": "Moletom feminino confortável com capuz"
+  },
+  {
+    "id": 17,
+    "name": "Jaqueta jeans masculina",
+    "price": 179.90,
+    "description": "Jaqueta jeans masculina clássica"
+  },
+  {
+    "id": 18,
+    "name": "Jaqueta corta vento",
+    "price": 149.90,
+    "description": "Jaqueta leve corta vento para clima frio"
+  },
+  {
+    "id": 19,
+    "name": "Regata masculina branca",
+    "price": 39.90,
+    "description": "Regata masculina branca ideal para dias quentes"
+  },
+  {
+    "id": 20,
+    "name": "Regata feminina preta",
+    "price": 39.90,
+    "description": "Regata feminina preta básica"
+  },
+  {
+    "id": 21,
+    "name": "Tênis casual branco",
+    "price": 199.90,
+    "description": "Tênis casual branco confortável para uso diário"
+  },
+  {
+    "id": 22,
+    "name": "Tênis esportivo running",
+    "price": 249.90,
+    "description": "Tênis esportivo ideal para corrida"
+  },
+  {
+    "id": 23,
+    "name": "Tênis urbano preto",
+    "price": 189.90,
+    "description": "Tênis urbano preto estilo streetwear"
+  },
+  {
+    "id": 24,
+    "name": "Boné preto básico",
+    "price": 39.90,
+    "description": "Boné preto casual ajustável"
+  },
+  {
+    "id": 25,
+    "name": "Boné branco esportivo",
+    "price": 39.90,
+    "description": "Boné branco leve para atividades esportivas"
+  },
+  {
+    "id": 26,
+    "name": "Cinto de couro marrom",
+    "price": 59.90,
+    "description": "Cinto masculino de couro legítimo"
+  },
+  {
+    "id": 27,
+    "name": "Cinto de couro preto",
+    "price": 59.90,
+    "description": "Cinto masculino de couro preto elegante"
+  },
+  {
+    "id": 28,
+    "name": "Jaqueta puffer masculina",
+    "price": 229.90,
+    "description": "Jaqueta puffer masculina para clima frio"
+  },
+  {
+    "id": 29,
+    "name": "Camiseta estampada streetwear",
+    "price": 69.90,
+    "description": "Camiseta estampada estilo streetwear moderno"
+  },
+  {
+    "id": 30,
+    "name": "Camiseta básica cinza",
+    "price": 49.90,
+    "description": "Camiseta básica cinza masculina de algodão"
   }
 ]
