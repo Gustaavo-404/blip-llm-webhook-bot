@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
+const { searchProducts } = require("../services/productSearch");
 
 /*
 Memória por usuário
@@ -17,14 +18,14 @@ Fallback
 */
 function fallbackResponse() {
   return `
-Não tenho certeza sobre isso, mas posso ajudar com:
+  Não tenho certeza sobre isso, mas posso ajudar com:
 
-• informações sobre produtos
-• suporte técnico
-• falar com atendente
+  • informações sobre produtos
+  • suporte técnico
+  • falar com atendente
 
-Como posso ajudar?
-`;
+  Como posso ajudar?
+  `;
 }
 
 /*
@@ -71,16 +72,16 @@ async function detectIntentLLM(message) {
           {
             role: "system",
             content: `
-Classifique a intenção da mensagem do usuário.
-Responda apenas com uma palavra.
+            Classifique a intenção da mensagem do usuário.
+            Responda apenas com uma palavra.
 
-Opções:
-greeting
-help
-human
-product
-question
-`
+            Opções:
+            greeting
+            help
+            human
+            product
+            question
+            `
           },
           {
             role: "user",
@@ -191,7 +192,76 @@ router.post("/", async (req, res) => {
 
     else if (intent === "product") {
 
-      reply = "Temos vários produtos disponíveis. O que você gostaria de saber?";
+      const results = await searchProducts(userMessage);
+
+      if (results.length === 0) {
+        return res.json({
+          reply: "Não encontrei esse produto no catálogo."
+        });
+      }
+
+      /*
+      Montar contexto para a LLM
+      */
+
+      const productContext = results.map(p => {
+        return `
+        Produto: ${p.name}
+        Preço: R$${p.price}
+        Descrição: ${p.description}
+        `;
+        }).join("\n");
+
+      /*
+      Prompt para gerar resposta natural
+      */
+
+      const response = await axios.post(
+        "https://models.inference.ai.azure.com/chat/completions",
+        {
+          model: process.env.MODEL,
+          messages: [
+            {
+              role: "system",
+              content: `
+              Você é um assistente de vendas de uma loja.
+
+              Use os produtos abaixo para responder a pergunta do cliente.
+
+              Seja natural e útil.
+              `
+            },
+            {
+              role: "system",
+              content: `Produtos disponíveis:\n${productContext}`
+            },
+            {
+              role: "user",
+              content: userMessage
+            }
+          ],
+          temperature: 0.6
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+
+      const reply = response.data.choices[0].message.content;
+
+      conversations[userId].push({
+        role: "assistant",
+        content: reply
+      });
+
+      logConversation(userId, userMessage, reply);
+
+      return res.json({
+        reply
+      });
 
     }
 

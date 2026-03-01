@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "name": "Camiseta branca masculina",
+    "price": 49.90,
+    "description": "Camiseta básica de algodão"
+  },
+  {
+    "id": 2,
+    "name": "Calça jeans slim",
+    "price": 129.90,
+    "description": "Calça jeans masculina slim fit"
+  }
+]
