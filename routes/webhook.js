@@ -7,11 +7,58 @@ const { searchProducts } = require("../services/productSearch");
 Memória por usuário
 */
 const conversations = {};
+const userLastProduct = {};
 
 /*
 Cache simples
 */
 const responseCache = {};
+
+/*
+Sinônimos de produtos
+*/
+const productSynonyms = {
+  camiseta: ["camiseta", "camisa", "tshirt", "t-shirt", "tee"],
+  regata: ["regata", "tank", "tanktop"],
+  calca: ["calça", "calca", "pants", "trouser"],
+  bermuda: ["bermuda", "short", "shorts"],
+  tenis: ["tenis", "tênis", "sneaker", "shoe"]
+};
+
+/*
+Normalizar consulta do usuário
+*/
+function normalizeQuery(query, userId) {
+
+  const q = query.toLowerCase();
+
+  for (const key in productSynonyms) {
+
+    for (const synonym of productSynonyms[key]) {
+
+      if (q.includes(synonym)) {
+
+        userLastProduct[userId] = key;
+        return query.replace(new RegExp(synonym, "gi"), key);
+
+      }
+
+    }
+
+  }
+
+  /*
+  Follow-up contextual
+  Ex: "tem azul?"
+  */
+
+  if (userLastProduct[userId]) {
+    return userLastProduct[userId] + " " + query;
+  }
+
+  return query;
+
+}
 
 /*
 Fallback
@@ -44,7 +91,6 @@ function logConversation(userId, question, answer) {
 
 /*
 Limitar contexto inteligente
-Mantém apenas últimos 4 turnos
 */
 function limitContext(history) {
 
@@ -55,14 +101,17 @@ function limitContext(history) {
   }
 
   return history;
+
 }
 
 /*
 Detecção de intenção usando LLM
 */
-async function detectIntentLLM(message) {
+async function detectIntentLLM(message, history = []) {
 
   try {
+
+    const contextMessages = history.slice(-4);
 
     const response = await axios.post(
       "https://models.inference.ai.azure.com/chat/completions",
@@ -72,17 +121,20 @@ async function detectIntentLLM(message) {
           {
             role: "system",
             content: `
-            Classifique a intenção da mensagem do usuário.
-            Responda apenas com uma palavra.
+            Classifique a intenção da mensagem.
 
-            Opções:
-            greeting
-            help
-            human
-            product
-            question
+            IMPORTANTE:
+            - perguntas sobre produtos → product
+            - pedir ajuda → help
+            - falar com humano → human
+            - cumprimentos → greeting
+
+            Responda SOMENTE com uma palavra.
             `
           },
+
+          ...contextMessages,
+
           {
             role: "user",
             content: message
@@ -117,9 +169,7 @@ async function simulateStreaming(text, res) {
   let partial = "";
 
   for (let i = 0; i < words.length; i++) {
-
     partial += words[i] + " ";
-
   }
 
   return partial;
@@ -135,14 +185,15 @@ router.post("/", async (req, res) => {
     const userId = req.body.from || "anonymous";
     let userMessage = "";
 
-    // Verifica string direta
     if (typeof req.body.content === "string") {
       userMessage = req.body.content;
     }
-    // Verifica objeto com .text
+
     else if (req.body.content && typeof req.body.content === "object") {
+
       if ("text" in req.body.content) userMessage = req.body.content.text;
       else if ("content" in req.body.content) userMessage = req.body.content.content;
+
     }
 
     if (!userMessage) {
@@ -157,10 +208,6 @@ router.post("/", async (req, res) => {
       conversations[userId] = [];
     }
 
-    /*
-    Salvar mensagem
-    */
-
     conversations[userId].push({
       role: "user",
       content: userMessage
@@ -170,7 +217,10 @@ router.post("/", async (req, res) => {
     Detectar intenção
     */
 
-    const intent = await detectIntentLLM(userMessage);
+    const intent = await detectIntentLLM(
+      userMessage,
+      conversations[userId]
+    );
 
     console.log("Intent detectada:", intent);
 
@@ -198,19 +248,21 @@ router.post("/", async (req, res) => {
 
     }
 
-    else if (intent === "product") {
+    /*
+    PRODUTOS
+    */
 
-      const results = await searchProducts(userMessage);
+    else if (intent === "product" || intent === "question") {
+
+      const normalizedQuery = normalizeQuery(userMessage, userId);
+
+      const results = await searchProducts(normalizedQuery);
 
       if (results.length === 0) {
         return res.json({
           reply: "Não encontrei esse produto no catálogo."
         });
       }
-
-      /*
-      Montar contexto para a LLM
-      */
 
       const productContext = results.map(p => {
         return `
@@ -219,10 +271,6 @@ router.post("/", async (req, res) => {
         Descrição: ${p.description}
         `;
       }).join("\n");
-
-      /*
-      Prompt para gerar resposta natural
-      */
 
       const response = await axios.post(
         "https://models.inference.ai.azure.com/chat/completions",
@@ -234,9 +282,11 @@ router.post("/", async (req, res) => {
               content: `
               Você é um assistente de vendas de uma loja.
 
-              Use os produtos abaixo para responder a pergunta do cliente.
-
-              Seja natural e útil. Responda sempre em texto simples.
+              IMPORTANTE:
+              - Use SOMENTE os produtos fornecidos
+              - NÃO invente produtos
+              - Se o produto não estiver na lista diga que não encontrou
+              - Responda SEMPRE em texto simples
               `
             },
             {
@@ -245,10 +295,10 @@ router.post("/", async (req, res) => {
             },
             {
               role: "user",
-              content: userMessage
+              content: normalizedQuery
             }
           ],
-          temperature: 0.6
+          temperature: 0.4
         },
         {
           headers: {
@@ -258,7 +308,7 @@ router.post("/", async (req, res) => {
         }
       );
 
-      const reply = response.data.choices[0].message.content;
+      reply = response.data.choices[0].message.content;
 
       conversations[userId].push({
         role: "assistant",
@@ -267,9 +317,7 @@ router.post("/", async (req, res) => {
 
       logConversation(userId, userMessage, reply);
 
-      return res.json({
-        reply
-      });
+      return res.json({ reply });
 
     }
 
@@ -286,9 +334,7 @@ router.post("/", async (req, res) => {
 
       logConversation(userId, userMessage, reply);
 
-      return res.json({
-        reply
-      });
+      return res.json({ reply });
 
     }
 
@@ -302,9 +348,7 @@ router.post("/", async (req, res) => {
 
       reply = responseCache[cacheKey];
 
-      return res.json({
-        reply
-      });
+      return res.json({ reply });
 
     }
 
@@ -313,10 +357,6 @@ router.post("/", async (req, res) => {
     */
 
     const context = limitContext(conversations[userId]);
-
-    /*
-    Chamada da LLM
-    */
 
     const response = await axios.post(
       "https://models.inference.ai.azure.com/chat/completions",
@@ -345,26 +385,14 @@ router.post("/", async (req, res) => {
       reply = fallbackResponse();
     }
 
-    /*
-    Salvar histórico
-    */
-
     conversations[userId].push({
       role: "assistant",
       content: reply
     });
 
-    /*
-    Cache
-    */
-
     responseCache[cacheKey] = reply;
 
     logConversation(userId, userMessage, reply);
-
-    /*
-    Streaming simulado
-    */
 
     const finalReply = await simulateStreaming(reply, res);
 
