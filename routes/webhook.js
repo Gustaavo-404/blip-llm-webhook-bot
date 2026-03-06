@@ -15,30 +15,57 @@ Cache simples
 const responseCache = {};
 
 /*
-Sinônimos de produtos
+Sinônimos de produtos (expandido)
 */
 const productSynonyms = {
   camiseta: ["camiseta", "camisa", "tshirt", "t-shirt", "tee"],
-  regata: ["regata", "tank", "tanktop"],
+  regata: ["regata", "tank", "tanktop", "camisa regata", "camiseta regata"],
   calca: ["calça", "calca", "pants", "trouser"],
   bermuda: ["bermuda", "short", "shorts"],
-  tenis: ["tenis", "tênis", "sneaker", "shoe"]
+  tenis: ["tenis", "tênis", "sneaker", "shoe"],
+  cinto: ["cinto", "belt", "leather belt", "couro"],
 };
 
+// Conjunto plano de todos os sinônimos para busca rápida
+const allSynonyms = new Set();
+Object.values(productSynonyms).forEach(list => list.forEach(syn => allSynonyms.add(syn)));
+
 /*
-Normalizar consulta do usuário
+Verifica se a consulta contém algum sinônimo de produto
+*/
+function containsProductSynonym(query) {
+  const q = query.toLowerCase();
+  for (let syn of allSynonyms) {
+    if (q.includes(syn)) return true;
+  }
+  return false;
+}
+
+/*
+Formatar texto antes de enviar ao Telegram
+*/
+function formatTelegram(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
+    .replace(/\n/g, "<br>");
+}
+
+/*
+Normalizar consulta do usuário com melhoria no follow-up
 */
 function normalizeQuery(query, userId) {
 
   const q = query.toLowerCase();
 
+  // Primeiro, tenta mapear para a chave canônica se houver sinônimo
   for (const key in productSynonyms) {
 
     for (const synonym of productSynonyms[key]) {
 
       if (q.includes(synonym)) {
-
+        // Atualiza último produto consultado
         userLastProduct[userId] = key;
+        // Substitui o sinônimo pela chave canônica na query original (mantém capitalização)
         return query.replace(new RegExp(synonym, "gi"), key);
 
       }
@@ -48,16 +75,28 @@ function normalizeQuery(query, userId) {
   }
 
   /*
-  Follow-up contextual
-  Ex: "tem azul?"
+  Follow-up contextual: só prepende se a consulta NÃO contiver nenhum sinônimo de produto
+  Ex: "tem azul?" → não tem sinônimo → prepende último produto
+  Ex: "e cinto de couro?" → contém "cinto" → não prepende
   */
-
-  if (userLastProduct[userId]) {
+  if (userLastProduct[userId] && !containsProductSynonym(q)) {
     return userLastProduct[userId] + " " + query;
   }
 
   return query;
+}
 
+/*
+Trunca mensagens longas do assistente para não estourar tokens
+*/
+function truncateHistory(history, maxTurns = 6, maxAssistantLength = 200) {
+  const limited = history.slice(-maxTurns);
+  return limited.map(msg => {
+    if (msg.role === 'assistant' && msg.content.length > maxAssistantLength) {
+      return { ...msg, content: msg.content.substring(0, maxAssistantLength) + '...' };
+    }
+    return msg;
+  });
 }
 
 /*
@@ -90,7 +129,7 @@ function logConversation(userId, question, answer) {
 }
 
 /*
-Limitar contexto inteligente
+Limitar contexto inteligente (já existente)
 */
 function limitContext(history) {
 
@@ -121,15 +160,21 @@ async function detectIntentLLM(message, history = []) {
           {
             role: "system",
             content: `
-            Classifique a intenção da mensagem.
+            Você é um classificador de intenção para um chatbot de uma loja de roupas.
 
-            IMPORTANTE:
-            - perguntas sobre produtos → product
-            - pedir ajuda → help
-            - falar com humano → human
-            - cumprimentos → greeting
+            Classifique a mensagem do usuário em UMA das intenções abaixo:
 
-            Responda SOMENTE com uma palavra.
+            greeting → cumprimentos (ex: oi, olá, bom dia, qual sua função?)
+            product → perguntas sobre produtos (ex: tem camiseta preta? preço da calça? o que é oversized?)
+            human → usuário quer falar com atendente humano
+
+            Responda APENAS com uma palavra:
+
+            greeting
+            product
+            human
+            help
+            question
             `
           },
 
@@ -161,7 +206,7 @@ async function detectIntentLLM(message, history = []) {
 }
 
 /*
-Simular streaming
+Simular streaming (mantido)
 */
 async function simulateStreaming(text, res) {
 
@@ -187,10 +232,7 @@ router.post("/", async (req, res) => {
 
     if (typeof req.body.content === "string") {
       userMessage = req.body.content;
-    }
-
-    else if (req.body.content && typeof req.body.content === "object") {
-
+    } else if (req.body.content && typeof req.body.content === "object") {
       if ("text" in req.body.content) userMessage = req.body.content.text;
       else if ("content" in req.body.content) userMessage = req.body.content.content;
 
@@ -200,10 +242,7 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ reply: "Mensagem inválida" });
     }
 
-    /*
-    Criar memória
-    */
-
+    // Criar/atualizar memória
     if (!conversations[userId]) {
       conversations[userId] = [];
     }
@@ -213,50 +252,32 @@ router.post("/", async (req, res) => {
       content: userMessage
     });
 
-    /*
-    Detectar intenção
-    */
-
-    const intent = await detectIntentLLM(
-      userMessage,
-      conversations[userId]
-    );
-
+    // Detectar intenção
+    const intent = await detectIntentLLM(userMessage, conversations[userId]);
     console.log("Intent detectada:", intent);
 
     let reply = null;
 
-    /*
-    Fluxos do bot
-    */
-
+    // Fluxos do bot
     if (intent === "greeting") {
-
-      reply = "Olá! Sou um assistente virtual. Como posso ajudar?";
-
+      reply = "Olá! 👋 Bem-vindo à UrbanStyle! 👟👕 Sou o assistente virtual da loja e estou aqui para ajudar você. Você pode perguntar sobre produtos, tamanhos, preços ou disponibilidade.";
     }
 
     else if (intent === "help") {
-
-      reply = "Posso responder perguntas ou conectar você com um atendente.";
-
+      reply = "Posso ajudar você a encontrar produtos, verificar preços e tamanhos ou tirar dúvidas sobre a loja. 👕👟";
     }
 
     else if (intent === "human") {
-
       reply = "Claro! Vou encaminhar você para um atendente.";
-
     }
 
-    /*
-    PRODUTOS
-    */
-
     else if (intent === "product" || intent === "question") {
-
+      // Normaliza a consulta com a nova lógica
       const normalizedQuery = normalizeQuery(userMessage, userId);
 
-      const results = await searchProducts(normalizedQuery);
+      // Busca produtos
+      const lastCategory = userLastProduct[userId];
+      const results = await searchProducts(normalizedQuery, lastCategory);
 
       if (results.length === 0) {
         return res.json({
@@ -264,40 +285,39 @@ router.post("/", async (req, res) => {
         });
       }
 
+      // Prepara contexto dos produtos
       const productContext = results.map(p => {
-        return `
-        Produto: ${p.name}
-        Preço: R$${p.price}
-        Descrição: ${p.description}
-        `;
-      }).join("\n");
+        return `Produto: ${p.name}\nPreço: R$${p.price}\nDescrição: ${p.description}`;
+      }).join("\n\n");
+
+      // Obtém histórico recente (inclui a mensagem atual do usuário) e trunca respostas longas
+      const recentHistory = truncateHistory(conversations[userId], 6, 200);
+
+      // Monta mensagens para o LLM com contexto completo
+      const messages = [
+        {
+          role: "system",
+          content: `
+            Você é um assistente de vendas de uma loja.
+            IMPORTANTE:
+            - Use SOMENTE os produtos fornecidos.
+            - NÃO invente produtos.
+            - Se o produto não estiver na lista, diga que não encontrou.
+            - Responda de uma maneira um pouco descontraída.
+          `
+        },
+        {
+          role: "system",
+          content: `Produtos disponíveis:\n${productContext}`
+        },
+        ...recentHistory  // Inclui as últimas trocas (usuário e assistente)
+      ];
 
       const response = await axios.post(
         "https://models.inference.ai.azure.com/chat/completions",
         {
           model: process.env.MODEL,
-          messages: [
-            {
-              role: "system",
-              content: `
-              Você é um assistente de vendas de uma loja.
-
-              IMPORTANTE:
-              - Use SOMENTE os produtos fornecidos
-              - NÃO invente produtos
-              - Se o produto não estiver na lista diga que não encontrou
-              - Responda SEMPRE em texto simples
-              `
-            },
-            {
-              role: "system",
-              content: `Produtos disponíveis:\n${productContext}`
-            },
-            {
-              role: "user",
-              content: normalizedQuery
-            }
-          ],
+          messages,
           temperature: 0.4
         },
         {
@@ -317,14 +337,12 @@ router.post("/", async (req, res) => {
 
       logConversation(userId, userMessage, reply);
 
+      reply = formatTelegram(reply);
       return res.json({ reply });
 
     }
 
-    /*
-    Se fluxo respondeu
-    */
-
+    // Se algum fluxo respondeu
     if (reply) {
 
       conversations[userId].push({
@@ -334,28 +352,24 @@ router.post("/", async (req, res) => {
 
       logConversation(userId, userMessage, reply);
 
+      reply = formatTelegram(reply);
       return res.json({ reply });
 
     }
 
-    /*
-    Cache
-    */
-
+    // Cache
     const cacheKey = userMessage.toLowerCase();
 
     if (responseCache[cacheKey]) {
 
       reply = responseCache[cacheKey];
 
+      reply = formatTelegram(reply);
       return res.json({ reply });
 
     }
 
-    /*
-    Contexto inteligente
-    */
-
+    // Contexto inteligente (fallback geral)
     const context = limitContext(conversations[userId]);
 
     const response = await axios.post(
@@ -379,11 +393,7 @@ router.post("/", async (req, res) => {
       }
     );
 
-    reply = response.data.choices[0].message.content;
-
-    if (!reply) {
-      reply = fallbackResponse();
-    }
+    reply = response.data.choices[0].message.content || fallbackResponse();
 
     conversations[userId].push({
       role: "assistant",
@@ -395,19 +405,12 @@ router.post("/", async (req, res) => {
     logConversation(userId, userMessage, reply);
 
     const finalReply = await simulateStreaming(reply, res);
-
-    res.json({
-      reply: finalReply
-    });
+    res.json({ reply: finalReply });
 
   } catch (error) {
 
     console.error("Erro:", error.response?.data || error.message);
-
-    res.json({
-      reply: fallbackResponse()
-    });
-
+    res.json({ reply: fallbackResponse() });
   }
 
 });
